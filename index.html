@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="pt-PT">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>A minha cor</title>
+
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 420px;
+        margin: 48px auto;
+        padding: 0 16px;
+      }
+      label,
+      button,
+      select {
+        font-size: 1rem;
+      }
+      select,
+      button {
+        padding: 8px 12px;
+        margin-top: 8px;
+      }
+      #mostrador {
+        margin-top: 32px;
+        padding: 24px;
+        border: 2px solid #999;
+        border-radius: 8px;
+        text-align: center;
+        background: #fff;
+      }
+      #estado {
+        margin-top: 16px;
+        min-height: 1.4em;
+        font-size: 0.9rem;
+        color: #555;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>A minha cor</h1>
+
+    <label for="cor">Escolhe uma cor:</label><br />
+    <select id="cor">
+      <option value="">-- escolher --</option>
+      <option value="#d62828">Vermelho</option>
+      <option value="#1d4ed8">Azul</option>
+      <option value="#2a9d4a">Verde</option>
+      <option value="#f4c20d">Amarelo</option>
+      <option value="#7e3ff2">Roxo</option>
+      <option value="#f77f00">Laranja</option>
+    </select>
+    <br />
+    <button id="guardar">Guardar</button>
+
+    <div id="mostrador">
+      Cor guardada: <strong id="valorGuardado">a carregar...</strong>
+    </div>
+    <div id="estado"></div>
+
+    <script>
+      // ---------- CONFIGURAÇÃO: preenche estes dois valores ----------
+      // Project URL: tem o formato https://xxxxxxxx.supabase.co (sem barra no fim)
+      const SUPABASE_URL = "https://pkxazujxxswangipnqvk.supabase.co";
+      // Publishable key: começa por sb_publishable_
+      const SUPABASE_KEY = "sb_publishable_zkcBgy6x7dL8W4lE85Hanw_orm_UfF0";
+
+      // Endereço da tabela na API que o Supabase criou automaticamente
+      const TABELA = SUPABASE_URL + "/rest/v1/preferencias";
+
+      // Cabeçalho que identifica o nosso site perante o Supabase
+      const CABECALHOS = {
+        apikey: SUPABASE_KEY,
+        "Content-Type": "application/json",
+      };
+
+      const dropdown = document.getElementById("cor");
+      const botao = document.getElementById("guardar");
+      const mostrador = document.getElementById("mostrador");
+      const texto = document.getElementById("valorGuardado");
+      const estado = document.getElementById("estado");
+
+      // ---------- LER: vai buscar a cor à base de dados ----------
+      async function lerCor() {
+        estado.textContent = "";
+        try {
+          // GET .../preferencias?id=eq.1  ->  "dá-me a linha onde id = 1"
+          const resposta = await fetch(
+            TABELA + "?id=eq.1&select=cor_nome,cor_hex",
+            {
+              method: "GET",
+              headers: CABECALHOS,
+            },
+          );
+
+          if (!resposta.ok) {
+            throw new Error(
+              "Erro " + resposta.status + " ao ler a base de dados.",
+            );
+          }
+
+          const linhas = await resposta.json(); // a API devolve uma lista de linhas
+
+          if (linhas.length === 0) {
+            texto.textContent = "nenhuma";
+            mostrador.style.background = "#fff";
+            mostrador.style.color = "#000";
+            return;
+          }
+
+          mostrarCor(linhas[0].cor_nome, linhas[0].cor_hex);
+          dropdown.value = linhas[0].cor_hex; // põe o dropdown na cor guardada
+        } catch (erro) {
+          texto.textContent = "erro";
+          estado.textContent = erro.message;
+        }
+      }
+
+      // ---------- GUARDAR: envia a cor para a base de dados ----------
+      async function guardarCor() {
+        if (dropdown.value === "") {
+          alert("Escolhe primeiro uma cor.");
+          return;
+        }
+
+        const opcao = dropdown.options[dropdown.selectedIndex];
+        const linha = { id: 1, cor_nome: opcao.text, cor_hex: dropdown.value };
+
+        estado.textContent = "A guardar...";
+        try {
+          // POST com "merge-duplicates" = se o id 1 já existe, atualiza; se não, cria
+          const resposta = await fetch(TABELA + "?on_conflict=id", {
+            method: "POST",
+            headers: {
+              ...CABECALHOS,
+              Prefer: "resolution=merge-duplicates,return=minimal",
+            },
+            body: JSON.stringify(linha),
+          });
+
+          if (!resposta.ok) {
+            throw new Error("Erro " + resposta.status + " ao guardar.");
+          }
+
+          estado.textContent = "Guardado.";
+          lerCor(); // volta a ler da base de dados para mostrar o que ficou guardado
+        } catch (erro) {
+          estado.textContent = erro.message;
+        }
+      }
+
+      // ---------- Mostrar no ecrã ----------
+      function mostrarCor(nome, hex) {
+        texto.textContent = nome;
+        mostrador.style.background = hex;
+        mostrador.style.color = "#fff";
+      }
+
+      // ---------- Arranque ----------
+      botao.addEventListener("click", guardarCor);
+      lerCor(); // ao abrir a página, vai buscar o valor guardado
+    </script>
+  </body>
+</html>
